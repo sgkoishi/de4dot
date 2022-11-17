@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using de4dot.blocks;
@@ -145,7 +145,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                     return false;
             return true;
         }
-        
+
         public static MethodDefUser Clone(MethodDef origin)
         {
             var ret = new MethodDefUser(origin.Name, origin.MethodSig, origin.ImplAttributes, origin.Attributes);
@@ -156,7 +156,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             ret.Body = origin.Body;
             return ret;
         }
-        
+
         public static T[] ConvertArray<T, T1>(T1[] array)
         {
             var l = Marshal.SizeOf(typeof(T));

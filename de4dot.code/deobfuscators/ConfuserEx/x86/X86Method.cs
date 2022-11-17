@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -39,7 +39,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx.x86
             var rawInstructions = new List<Disasm>();
 
             while (true)
-            { 
+            {
                 byte[] bytes = ReadChunk(method, _module);
 
                 var disasm = new Disasm();
@@ -48,7 +48,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx.x86
                 disasm.EIP = new IntPtr(buff.Ptr.ToInt32());
 
                 var instruction = BeaEngine.Disasm(disasm);
-                _readOffset -= 8 - instruction; // revert offset back for each byte that was not a part of this instruction
+                _readOffset = (uint)(_readOffset + instruction - 8); // revert offset back for each byte that was not a part of this instruction
                 var mnemonic = disasm.Instruction.Mnemonic.Trim();
 
                 if (mnemonic == "ret") //TODO: Check if this is the only return in function, e.g. check for jumps that go beyond this address
@@ -105,20 +105,20 @@ namespace de4dot.code.deobfuscators.ConfuserEx.x86
             }
         }
 
-        private int _readOffset;
+        private uint _readOffset;
         public byte[] ReadChunk(MethodDef method, ModuleDefMD module)
         {
-            var stream = module.MetaData.PEImage.CreateFullStream();
-            var offset = module.MetaData.PEImage.ToFileOffset(method.RVA);
+            var stream = module.Metadata.PEImage.CreateReader();
+            var offset = module.Metadata.PEImage.ToFileOffset(method.RVA);
 
             byte[] buffer = new byte[8];
 
             if (_readOffset == 0) //TODO: Don't use hardcoded offset
-                _readOffset = (int) offset + 20; // skip to actual calculation code
+                _readOffset = (uint) offset + 20; // skip to actual calculation code
 
             stream.Position = _readOffset;
 
-            stream.Read(buffer, 0, 8); // read 8 bytes to make sure that's a whole instruction
+            stream.ReadBytes(buffer, 0, 8); // read 8 bytes to make sure that's a whole instruction
             _readOffset += 8;
 
             return buffer;

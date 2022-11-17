@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -234,10 +234,10 @@ namespace de4dot.code.deobfuscators.ConfuserEx
         private byte[] DecryptArray(MethodDef method, byte[] encryptedArray)
         {
             ModuleDefUser tempModule = new ModuleDefUser("TempModule");
-            
+
             AssemblyDef tempAssembly = new AssemblyDefUser("TempAssembly");
             tempAssembly.Modules.Add(tempModule);
-            
+
             var tempType = new TypeDefUser("", "TempType", tempModule.CorLibTypes.Object.TypeDefOrRef);
             tempType.Attributes = TypeAttributes.Public | TypeAttributes.Class;
             MethodDef tempMethod = Utils.Clone(method);
@@ -256,11 +256,11 @@ namespace de4dot.code.deobfuscators.ConfuserEx
 
             tempType.Methods.Add(tempMethod);
             tempModule.Types.Add(tempType);
-            
+
             using (MemoryStream memoryStream = new MemoryStream())
             {
-                ModuleWriterOptions moduleWriterOptions = new ModuleWriterOptions();
-                moduleWriterOptions.MetaDataOptions = new MetaDataOptions();
+                ModuleWriterOptions moduleWriterOptions = new ModuleWriterOptions(tempModule);
+                moduleWriterOptions.MetadataOptions = new MetadataOptions();
 
                 tempModule.Write(memoryStream, moduleWriterOptions);
 

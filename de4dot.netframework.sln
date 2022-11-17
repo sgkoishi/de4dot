@@ -13,17 +13,17 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AssemblyData", "AssemblyDat
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "de4dot", "de4dot\de4dot.csproj", "{004EB657-252C-4361-A2D2-2E514130C7FC}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "de4dot-x64", "de4dot-x64\de4dot-x64.csproj", "{A9F35AC2-D016-444B-B7E6-FC1D55569021}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AssemblyServer", "AssemblyServer\AssemblyServer.csproj", "{593AB87D-7B92-47CF-8201-3574CF6A6457}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AssemblyServer-x64", "AssemblyServer-x64\AssemblyServer-x64.csproj", "{F458A89A-AEAB-4965-AA4D-393C9F7411D0}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "de4dot.blocks", "de4dot.blocks\de4dot.blocks.csproj", "{045B96F2-AF80-4C4C-8D27-E38635AC705E}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "de4dot.cui", "de4dot.cui\de4dot.cui.csproj", "{879E4A7E-C320-42D2-8275-4F1E44CE64AA}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "de4dot.mdecrypt", "de4dot.mdecrypt\de4dot.mdecrypt.csproj", "{5C93C5E2-196F-4877-BF65-96FEBFCEFCA1}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "de4dot-x64", "de4dot-x64\de4dot-x64.csproj", "{A9F35AC2-D016-444B-B7E6-FC1D55569021}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AssemblyServer", "AssemblyServer\AssemblyServer.csproj", "{593AB87D-7B92-47CF-8201-3574CF6A6457}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AssemblyServer-x64", "AssemblyServer-x64\AssemblyServer-x64.csproj", "{F458A89A-AEAB-4965-AA4D-393C9F7411D0}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AssemblyServer-CLR20", "AssemblyServer-CLR20\AssemblyServer-CLR20.csproj", "{C72DC899-1760-432B-B429-3CD88B669A6A}"
 EndProject

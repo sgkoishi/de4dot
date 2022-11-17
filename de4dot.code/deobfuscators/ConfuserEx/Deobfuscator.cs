@@ -1,4 +1,4 @@
-﻿/*
+/*
     Copyright (C) 2011-2017 TheProxy
 
     This file is part of modified de4dot.

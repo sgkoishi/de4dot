@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -56,12 +56,12 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                     continue;
                 if (!DotNetUtils.IsMethod(method, "System.Void", "()"))
                     continue;
-                
+
                 _deobfuscator.Deobfuscate(method, SimpleDeobfuscatorFlags.Force);
-                
+
                 if (!IsResDecryptInit(method, out FieldDef aField, out FieldDef asmField, out MethodDef mtd))
                     continue;
-                
+
                 try
                 {
                     _decryptedBytes = DecryptArray(method, aField.InitialValue);
@@ -71,12 +71,12 @@ namespace de4dot.code.deobfuscators.ConfuserEx
 	                Console.WriteLine(e.Message);
                     return;
                 }
-                
+
                 _arrayField = aField;
                 Type = DotNetUtils.GetType(_module, aField.FieldSig.Type);
                 _asmField = asmField;
-                AssembyResolveMethod = mtd;   
-                Method = method;      
+                AssembyResolveMethod = mtd;
+                Method = method;
 	            CanRemoveLzma = true;
             }
         }
@@ -150,15 +150,15 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             mtd = instr[l - 4].Operand as MethodDef;
             if (mtd == null)
                 return false;
-            
+
             if (DotNetUtils.IsMethod(mtd, "", "()"))
                 return false;
-            
-            _deobfuscator.Deobfuscate(mtd, SimpleDeobfuscatorFlags.Force);     
-            
+
+            _deobfuscator.Deobfuscate(mtd, SimpleDeobfuscatorFlags.Force);
+
             if (!IsAssembyResolveMethod(mtd, asField))
                 return false;
-            
+
             if (instr[l - 3].OpCode != OpCodes.Newobj)
                 return false;
             if (instr[l - 2].OpCode != OpCodes.Callvirt)
@@ -171,10 +171,10 @@ namespace de4dot.code.deobfuscators.ConfuserEx
         private byte[] DecryptArray(MethodDef method, byte[] encryptedArray)
         {
             ModuleDefUser tempModule = new ModuleDefUser("TempModule");
-            
+
             AssemblyDef tempAssembly = new AssemblyDefUser("TempAssembly");
             tempAssembly.Modules.Add(tempModule);
-            
+
             var tempType = new TypeDefUser("", "TempType", tempModule.CorLibTypes.Object.TypeDefOrRef);
             tempType.Attributes = TypeAttributes.Public | TypeAttributes.Class;
             MethodDef tempMethod = Utils.Clone(method);
@@ -193,11 +193,11 @@ namespace de4dot.code.deobfuscators.ConfuserEx
 
             tempType.Methods.Add(tempMethod);
             tempModule.Types.Add(tempType);
-            
+
             using (MemoryStream memoryStream = new MemoryStream())
             {
-                ModuleWriterOptions moduleWriterOptions = new ModuleWriterOptions();
-                moduleWriterOptions.MetaDataOptions = new MetaDataOptions();
+                ModuleWriterOptions moduleWriterOptions = new ModuleWriterOptions(tempModule);
+                moduleWriterOptions.MetadataOptions = new MetadataOptions();
 
                 tempModule.Write(memoryStream, moduleWriterOptions);
 
@@ -246,7 +246,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 return false;
             if (instr[9].OpCode != OpCodes.Ret)
                 return false;
-            
+
             return true;
         }
 
