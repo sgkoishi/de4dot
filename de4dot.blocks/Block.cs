@@ -22,7 +22,21 @@ using System.Collections.Generic;
 using dnlib.DotNet.Emit;
 
 namespace de4dot.blocks {
+	public enum BlockType {
+		Normal,
+		Switch,
+		SwitchCase
+	}
+
 	public class Block : BaseBlock {
+		public BlockType BlockType = BlockType.Normal;
+		public bool Processed = false;
+		public SwitchData SwitchData;
+
+		public Block() {
+			SwitchData = new SwitchData(this);
+		}
+
 		List<Instr> instructions = new List<Instr>();
 
 		// List of all explicit (non-fall-through) targets. It's just one if it's a normal
@@ -36,16 +50,18 @@ namespace de4dot.blocks {
 		List<Block> sources = new List<Block>();
 
 		public Block FallThrough {
-			get => fallThrough;
-			set => fallThrough = value;
+			get { return fallThrough; }
+			set { fallThrough = value; }
 		}
 
 		public List<Block> Targets {
-			get => targets;
-			set => targets = value;
+			get { return targets; }
+			set { targets = value; }
 		}
 
-		public List<Block> Sources => sources;
+		public List<Block> Sources {
+			get { return sources; }
+		}
 
 		public Instr FirstInstr {
 			get {
@@ -63,10 +79,17 @@ namespace de4dot.blocks {
 			}
 		}
 
-		public void Add(Instr instr) => instructions.Add(instr);
-		public void Insert(int index, Instruction instr) => instructions.Insert(index, new Instr(instr));
+		public void Add(Instr instr) {
+			instructions.Add(instr);
+		}
 
-		public List<Instr> Instructions => instructions;
+		public void Insert(int index, Instruction instr) {
+			instructions.Insert(index, new Instr(instr));
+		}
+
+		public List<Instr> Instructions {
+			get { return instructions; }
+		}
 
 		// If last instr is a br/br.s, removes it and replaces it with a fall through
 		public void RemoveLastBr() {
@@ -123,7 +146,10 @@ namespace de4dot.blocks {
 			ReplaceLastInstrsWithBranch(numInstrs, target);
 		}
 
-		public void ReplaceBccWithBranch(bool isTaken) => ReplaceLastInstrsWithBranch(1, isTaken ? targets[0] : fallThrough);
+		public void ReplaceBccWithBranch(bool isTaken) {
+			Block target = isTaken ? targets[0] : fallThrough;
+			ReplaceLastInstrsWithBranch(1, target);
+		}
 
 		public void ReplaceSwitchWithBranch(Block target) {
 			if (LastInstr.OpCode.Code != Code.Switch)
@@ -208,10 +234,14 @@ namespace de4dot.blocks {
 		}
 
 		// Returns true iff other is the only block in Sources
-		public bool IsOnlySource(Block other) => sources.Count == 1 && sources[0] == other;
+		public bool IsOnlySource(Block other) {
+			return sources.Count == 1 && sources[0] == other;
+		}
 
 		// Returns true if we can merge other with this
-		public bool CanMerge(Block other) => CanAppend(other) && other.IsOnlySource(this);
+		public bool CanMerge(Block other) {
+			return CanAppend(other) && other.IsOnlySource(this);
+		}
 
 		// Merge two blocks into one
 		public void Merge(Block other) {
@@ -233,7 +263,7 @@ namespace de4dot.blocks {
 			if (!CanAppend(other))
 				throw new ApplicationException("Can't append the block!");
 
-			RemoveLastBr();		// Get rid of last br/br.s if present
+			RemoveLastBr();     // Get rid of last br/br.s if present
 
 			var newInstructions = new List<Instr>(instructions.Count + other.instructions.Count);
 			AddInstructions(newInstructions, instructions, false);
@@ -269,9 +299,13 @@ namespace de4dot.blocks {
 		}
 
 		// Returns true if it falls through
-		public bool IsFallThrough() => targets == null && fallThrough != null;
+		public bool IsFallThrough() {
+			return targets == null && fallThrough != null;
+		}
 
-		public bool CanFlipConditionalBranch() => LastInstr.CanFlipConditionalBranch();
+		public bool CanFlipConditionalBranch() {
+			return LastInstr.CanFlipConditionalBranch();
+		}
 
 		public void FlipConditionalBranch() {
 			if (fallThrough == null || targets == null || targets.Count != 1)
@@ -283,7 +317,9 @@ namespace de4dot.blocks {
 		}
 
 		// Returns true if it's a conditional branch
-		public bool IsConditionalBranch() => LastInstr.IsConditionalBranch();
+		public bool IsConditionalBranch() {
+			return LastInstr.IsConditionalBranch();
+		}
 
 		public bool IsNopBlock() {
 			if (!IsFallThrough())

@@ -38,7 +38,7 @@ namespace de4dot.cui {
 		static IList<IDeobfuscatorInfo> LoadPlugin(string assembly) {
 			var plugins = new List<IDeobfuscatorInfo>();
 			try {
-				foreach (var item in Assembly.LoadFile(assembly).GetTypes()) {
+				foreach (Type item in Assembly.LoadFile(assembly).GetTypes()) {
 					var interfaces = new List<Type>(item.GetInterfaces());
 					if (item.IsClass && interfaces.Contains(typeof(IDeobfuscatorInfo)))
 						plugins.Add((IDeobfuscatorInfo)Activator.CreateInstance(item));
@@ -58,7 +58,7 @@ namespace de4dot.cui {
 			}
 			catch {
 			}
-			foreach(var p in plugins)
+			foreach (var p in plugins)
 				result[p.Type] = p;
 		}
 
@@ -71,6 +71,7 @@ namespace de4dot.cui {
 				new de4dot.code.deobfuscators.CodeVeil.DeobfuscatorInfo(),
 				new de4dot.code.deobfuscators.CodeWall.DeobfuscatorInfo(),
 				new de4dot.code.deobfuscators.Confuser.DeobfuscatorInfo(),
+				new de4dot.code.deobfuscators.ConfuserEx.DeobfuscatorInfo(),
 				new de4dot.code.deobfuscators.CryptoObfuscator.DeobfuscatorInfo(),
 				new de4dot.code.deobfuscators.DeepSea.DeobfuscatorInfo(),
 				new de4dot.code.deobfuscators.Dotfuscator.DeobfuscatorInfo(),

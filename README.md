@@ -8,7 +8,7 @@ It uses [dnlib](https://github.com/0xd4d/dnlib/) to read and write assemblies so
 Binaries
 ========
 
-Get binaries from the build server [![](https://github.com/0xd4d/de4dot/workflows/GitHub%20CI/badge.svg)](https://github.com/0xd4d/de4dot/actions).
+Get binaries from the [build server](https://ci.appveyor.com/project/0xd4d/de4dot/build/artifacts).
 
 It's FREE but there's NO SUPPORT
 ================================
@@ -51,6 +51,7 @@ Supported obfuscators/packers
 * CryptoObfuscator
 * DeepSea Obfuscator
 * Dotfuscator
+* ConfuserEx (unpack first)
 * .NET Reactor
 * Eazfuscator.NET
 * Goliath.NET

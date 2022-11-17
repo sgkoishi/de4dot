@@ -1,4 +1,5 @@
 *~
+<<<<<<< HEAD
 .vs/
 bin/
 obj/
@@ -7,3 +8,13 @@ Debug/
 publish-netcoreapp*/
 launchSettings.json
 *.user
+=======
+*/obj/
+*.csproj.user
+*.sdf
+*.opensdf
+*.suo
+/Debug/
+/Release/
+.idea/
+>>>>>>> virb3/master
