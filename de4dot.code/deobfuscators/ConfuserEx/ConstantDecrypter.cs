@@ -4,11 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.Arm;
 using System.Text;
 using de4dot.blocks;
 using de4dot.blocks.cflow;
 using de4dot.code.deobfuscators.ConfuserEx.x86;
 using dnlib.DotNet;
+using dnlib.DotNet.Emit;
 using dnlib.DotNet.Writer;
 using FieldAttributes = dnlib.DotNet.FieldAttributes;
 using MethodAttributes = dnlib.DotNet.MethodAttributes;
@@ -49,35 +51,37 @@ namespace de4dot.code.deobfuscators.ConfuserEx
 
         private uint CalculateMagic(uint index)
         {
-            uint uint_0;
-            if (NativeMethod != null)
-            {
-                _instructionEmulator.Push(new Int32Value((int)index));
-                _nativeMethod = new X86Method(NativeMethod, Method.Module as ModuleDefMD); //TODO: Possible null
-                var key = CalculateKey();
+			if (NativeMethod != null) {
+				_instructionEmulator.Push(new Int32Value((int)index));
+				_nativeMethod = new X86Method(NativeMethod, Method.Module as ModuleDefMD); //TODO: Possible null
+				var key = CalculateKey();
 
-                uint_0 = (uint)key.Value;
-            }
-            else
-            {
-                uint_0 = index * Num1 ^ Num2;
-            }
+				var uint_0 = (uint)key.Value;
 
-            uint_0 &= 0x3fffffff;
-            uint_0 <<= 2;
-            return uint_0;
-        }
+				uint_0 &= 0x3fffffff;
+				uint_0 <<= 2;
+				return uint_0;
+			}
+			else if (index is uint uint_0) {
+				uint_0 = uint_0 * Num1 ^ Num2;
+
+				uint_0 &= 0x3fffffff;
+				uint_0 <<= 2;
+				return uint_0;
+			}
+			throw new NotImplementedException();
+		}
 
         public string DecryptString(uint index)
         {
-            index = CalculateMagic(index);
+			index = CalculateMagic(index);
             var count = BitConverter.ToInt32(Decrypted, (int) index);
             return string.Intern(Encoding.UTF8.GetString(Decrypted, (int) index + 4, count));
         }
 
         public T DecryptConstant<T>(uint index)
         {
-            index = CalculateMagic(index);
+			index = CalculateMagic(index);
             var array = new T[1];
             Buffer.BlockCopy(Decrypted, (int) index, array, 0, Marshal.SizeOf(typeof(T)));
             return array[0];
@@ -136,47 +140,53 @@ namespace de4dot.code.deobfuscators.ConfuserEx
         public bool Detected => Method != null && _decryptedBytes != null && Decrypters.Count != 0 &&
                                 _decryptedField != null && _arrayField != null;
 
-        public void Find()
-        {
-            var moduleCctor = DotNetUtils.GetModuleTypeCctor(_module);
-            if (moduleCctor == null)
-                return;
-            foreach (var inst in moduleCctor.Body.Instructions)
-            {
-                if (inst.OpCode != OpCodes.Call)
-                    continue;
-                if (!(inst.Operand is MethodDef))
-                    continue;
-                var method = (MethodDef) inst.Operand;
-                if (!method.HasBody || !method.IsStatic)
-                    continue;
-                if (!DotNetUtils.IsMethod(method, "System.Void", "()"))
-                    continue;
+		public void Find() {
+			var moduleCctor = DotNetUtils.GetModuleTypeCctor(_module);
+			if (moduleCctor == null)
+				return;
+			foreach (var inst in moduleCctor.Body.Instructions) {
+				if (inst.OpCode != OpCodes.Call)
+					continue;
+				if (!(inst.Operand is MethodDef))
+					continue;
+				var method = (MethodDef)inst.Operand;
+				if (!method.HasBody || !method.IsStatic)
+					continue;
+				if (!DotNetUtils.IsMethod(method, "System.Void", "()"))
+					continue;
 
-                _deobfuscator.Deobfuscate(method, SimpleDeobfuscatorFlags.Force);
+				if (Find(method)) {
+					Decrypters.AddRange(FindStringDecrypters(moduleCctor.DeclaringType));
+				}
+			}
 
-                if (!IsStringDecrypterInit(method, out FieldDef aField, out FieldDef dField))
-                    continue;
-                try
-                {
-                    _decryptedBytes = DecryptArray(method, aField.InitialValue);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.Message);
-                    return;
-                }
+			if (Find(moduleCctor)) {
+				Decrypters.AddRange(FindStringDecrypters(moduleCctor.DeclaringType));
+			}
+		}
 
-                _arrayField = aField;
-                _decryptedField = dField;
-                ArrayType = DotNetUtils.GetType(_module, _arrayField.FieldSig.Type);
-                Method = method;
-                Decrypters.AddRange(FindStringDecrypters(moduleCctor.DeclaringType));
-                CanRemoveLzma = true;
-            }
-        }
+		public bool Find(MethodDef method) {
+			_deobfuscator.Deobfuscate(method, SimpleDeobfuscatorFlags.Force);
 
-        private bool IsStringDecrypterInit(MethodDef method, out FieldDef aField, out FieldDef dField)
+			if (!IsStringDecrypterInit(method, out FieldDef aField, out FieldDef dField))
+				return false;
+			try {
+				_decryptedBytes = DecryptArray(method, aField.InitialValue);
+			}
+			catch (Exception e) {
+				Console.WriteLine(e.Message);
+				return false;
+			}
+
+			_arrayField = aField;
+			_decryptedField = dField;
+			ArrayType = DotNetUtils.GetType(_module, _arrayField.FieldSig.Type);
+			Method = method;
+			CanRemoveLzma = true;
+			return true;
+		}
+
+		private bool IsStringDecrypterInit(MethodDef method, out FieldDef aField, out FieldDef dField)
         {
             aField = null;
             dField = null;
@@ -184,51 +194,49 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             if (instructions.Count < 15)
                 return false;
 
-            if (!instructions[0].IsLdcI4())
-                return false;
-            if (!instructions[1].IsStloc()) //uint num = 96u;
-                return false;
+			var calledMethods = new Predicate<Instruction>[] {
+				// call void [mscorlib]System.Runtime.CompilerServices.RuntimeHelpers::InitializeArray(class [mscorlib]System.Array, valuetype [mscorlib]System.RuntimeFieldHandle)
+				i => i.Operand is IMethod im
+					&& DotNetUtils.IsMethod(im, "System.Void", "(System.Array,System.RuntimeFieldHandle)"),
+				// call System.Byte[] Lzma.Decompress(System.Byte[])
+				i => i.Operand is IMethod im
+					&& im.DeclaringType.Name == "<Module>"
+					&& DotNetUtils.IsMethod(im, "System.Byte[]", "(System.Byte[])"),
+				// callvirt instance int64 [mscorlib]System.IO.Stream::get_Length()
+				i => i.Operand is IMethod im
+					&& DotNetUtils.IsMethod(im, "System.Int64", "()"),
+				// callvirt instance int32 [mscorlib]System.IO.Stream::Read(uint8[], int32, int32)
+				i => i.Operand is IMethod im
+					&& DotNetUtils.IsMethod(im, "System.Int32", "(System.Byte[],System.Int32,System.Int32)"),
+				// call void [mscorlib]System.Array::Reverse(class [mscorlib]System.Array, int32, int32)
+				i => i.Operand is IMethod im
+					&& DotNetUtils.IsMethod(im, "System.Void", "(System.Array,System.Int32,System.Int32)"),
+				// decoder.Code(s, z, compressedSize, outSize);
+				i => i.Operand is IMethod im
+					&& DotNetUtils.IsMethod(im, "System.Void", "(System.IO.Stream,System.IO.Stream,System.Int64,System.Int64)"),
+			};
 
-            if (!instructions[2].IsLdcI4())
-                return false;
-            if (instructions[0].GetLdcI4Value() != instructions[2].GetLdcI4Value())
-                return false;
-            if (instructions[3].OpCode != OpCodes.Newarr)
-                return false;
-            if (instructions[3].Operand.ToString() != "System.UInt32")
-                return false;
-            if (instructions[4].OpCode != OpCodes.Dup)
-                return false;
-            if (instructions[5].OpCode != OpCodes.Ldtoken)
-                return false;
-            aField = instructions[5].Operand as FieldDef;
-            if (aField?.InitialValue == null)
-                return false;
-            if (aField.Attributes != (FieldAttributes.Assembly | FieldAttributes.Static | FieldAttributes.HasFieldRVA))
-                return false;
-            if (instructions[6].OpCode != OpCodes.Call)
-                return false;
-            if (instructions[6].Operand.ToString() !=
-                "System.Void System.Runtime.CompilerServices.RuntimeHelpers::InitializeArray(System.Array,System.RuntimeFieldHandle)"
-            )
-                return false;
-            if (!instructions[7].IsStloc()) // uint[] array = new uint[] {.....};
-                return false;
+			for (var i = 0; i < instructions.Count - 1; i++) {
+				var ins = instructions[i];
+				var nins = instructions[i + 1];
+				if (ins.OpCode == OpCodes.Ldtoken) {
+					if (nins.OpCode == OpCodes.Call
+						&& ins.Operand is FieldDef fd && nins.Operand is IMethod im
+						&& DotNetUtils.IsMethod(im, "System.Void", "(System.Array,System.RuntimeFieldHandle)")) {
+						aField = fd;
+					}
+				}
+				if (ins.OpCode == OpCodes.Call) {
+					if (nins.OpCode == OpCodes.Stsfld
+						&& ins.Operand is IMethod im && nins.Operand is FieldDef fd
+						&& DotNetUtils.IsMethod(im, "System.Byte[]", "(System.Byte[])")
+						&& fd.DeclaringType.ToString() == "<Module>") {
+						dField = fd;
+					}
+				}
+			}
 
-            var l = instructions.Count;
-            if (!instructions[l - 4].IsLdloc())
-                return false;
-            if (instructions[l - 3].OpCode != OpCodes.Call)
-                return false;
-            if (instructions[l - 3].Operand != _lzmaMethod)
-                return false;
-            if (instructions[l - 2].OpCode != OpCodes.Stsfld) //<Module>.byte_0 = <Module>.smethod_0(array4);
-                return false;
-            dField = instructions[l - 2].Operand as FieldDef;
-            if (dField == null)
-                return false;
-
-            return true;
+			return aField != null && dField != null;
         }
 
         private byte[] DecryptArray(MethodDef method, byte[] encryptedArray)
@@ -246,13 +254,59 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             tempMethod.MethodSig.Params.Add(new SZArraySig(tempModule.CorLibTypes.Byte));
             tempMethod.Attributes = MethodAttributes.Public | MethodAttributes.Static;
 
-            for (int i = 0; i < 5; i++)
-                tempMethod.Body.Instructions.RemoveAt(2); // read encrypted array from argument
-            tempMethod.Body.Instructions.Insert(2, OpCodes.Ldarg_0.ToInstruction());
+			// ldc.i4.s length
+			// newarr System.UInt32
+			// dup
+			// ldtoken field valuetype '<Module>'/Struct '<Module>'::struct_
+			// call void System.Runtime.CompilerServices.RuntimeHelpers::InitializeArray(class [mscorlib]System.Array, valuetype [mscorlib]System.RuntimeFieldHandle)
 
-            for (int i = 0; i < 2; i++)
-                tempMethod.Body.Instructions.RemoveAt(tempMethod.Body.Instructions.Count -
-                                                      2); // make return decrypted array
+			// replace the default array with ldarg
+			var index_start = -1;
+			for (var i = 0; i < tempMethod.Body.Instructions.Count - 5; i++) {
+				if (tempMethod.Body.Instructions[i].IsLdcI4()
+					&& tempMethod.Body.Instructions[i + 1].OpCode == OpCodes.Newarr
+					&& tempMethod.Body.Instructions[i + 2].OpCode == OpCodes.Dup
+					&& tempMethod.Body.Instructions[i + 3].OpCode == OpCodes.Ldtoken
+					&& tempMethod.Body.Instructions[i + 4].OpCode == OpCodes.Call) {
+					index_start = i;
+					break;
+				}
+			}
+
+			// call System.Byte[] Decompress(System.Byte[])
+			// stsfld <Module>.bytearray
+			var index_end = -1;
+			for (var i = 0; i < tempMethod.Body.Instructions.Count - 1; i++) {
+				if (tempMethod.Body.Instructions[i].OpCode == OpCodes.Call
+					&& tempMethod.Body.Instructions[i + 1].OpCode == OpCodes.Stsfld) {
+					index_end = i;
+					break;
+				}
+			}
+
+			if (index_start > 0 && index_end > 0) {
+				tempMethod.Body.Instructions.RemoveAt(index_end);
+				tempMethod.Body.Instructions.RemoveAt(index_end);
+				tempMethod.Body.Instructions.Insert(index_end, OpCodes.Ret.ToInstruction());
+				while (tempMethod.Body.Instructions.Count > index_end + 1) {
+					tempMethod.Body.Instructions.RemoveAt(index_end + 1);
+				}
+				tempMethod.Body.Instructions.RemoveAt(index_start);
+				tempMethod.Body.Instructions.RemoveAt(index_start);
+				tempMethod.Body.Instructions.RemoveAt(index_start);
+				tempMethod.Body.Instructions.RemoveAt(index_start);
+				tempMethod.Body.Instructions.RemoveAt(index_start);
+				tempMethod.Body.Instructions.Insert(index_start, OpCodes.Ldarg_0.ToInstruction());
+			}
+
+			while (tempMethod.Body.Instructions.Count > 0) {
+				if (!tempMethod.Body.Instructions[0].IsLdcI4()) {
+					tempMethod.Body.Instructions.RemoveAt(0);
+				}
+				else {
+					break;
+				}
+			}
 
             tempType.Methods.Add(tempMethod);
             tempModule.Types.Add(tempType);
@@ -284,7 +338,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 var sig = method.MethodSig;
                 if (sig?.Params.Count != 1)
                     continue;
-                if (sig.Params[0].GetElementType() != ElementType.U4)
+                if (sig.Params[0].GetElementType() != ElementType.U4 && sig.Params[0].GetElementType() != ElementType.I4)
                     continue;
                 if (!(sig.RetType.RemovePinnedAndModifiers() is GenericMVar))
                     continue;
@@ -323,63 +377,30 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             if (instr.Count < 25)
                 return false;
 
-            var i = 0;
+			if (instr[0].OpCode == OpCodes.Call && instr[1].OpCode == OpCodes.Call && instr[2].OpCode == OpCodes.Callvirt) {
+				// Assembly.GetExecutingAssembly().Equals(Assembly.GetCallingAssembly())
+				if (instr[0].Operand is IMethod im0 && DotNetUtils.IsMethod(im0, "System.Reflection.Assembly", "()")
+					&& instr[1].Operand is IMethod im1 && DotNetUtils.IsMethod(im1, "System.Reflection.Assembly", "()")
+					&& instr[2].Operand is IMethod im2 && DotNetUtils.IsMethod(im2, "System.Boolean", "(System.Object)")) {
+					instr[0].Operand = im1;
+				}
+			}
 
-            if (!instr[i++].IsLdarg())
-                return false;
-            if (!instr[i].IsLdcI4())
-                return false;
-            num1 = (int)instr[i++].Operand;
-            if (instr[i++].OpCode != OpCodes.Mul)
-                return false;
-            if (!instr[i].IsLdcI4())
-                return false;
-            num2 = (int)instr[i++].Operand;
-            if (instr[i++].OpCode != OpCodes.Xor)
-                return false;
+			for (var i = 0; i < instr.Count - 3; i++) {
+				if (instr[i].IsLdcI4() && instr[i + 1].OpCode == OpCodes.Mul && instr[i + 2].IsLdcI4() && instr[i + 3].OpCode == OpCodes.Xor) {
+					if (instr[i].Operand is int i1)
+						num1 = i1;
+					else
+						num1 = (int)(uint)instr[i].Operand;
+					if (instr[i + 2].Operand is int i2)
+						num2 = i2;
+					else
+						num2 = (int)(uint)instr[i + 2].Operand;
+					return true;
+				}
+			}
 
-            if (!instr[i++].IsStarg()) //uint_0 = (uint_0 * 2857448701u ^ 1196001109u);
-                return false;
-
-            if (!instr[i++].IsLdarg())
-                return false;
-            if (!instr[i].IsLdcI4() || instr[i++].GetLdcI4Value() != 0x1E)
-                return false;
-            if (instr[i++].OpCode != OpCodes.Shr_Un)
-                return false;
-            if (!instr[i++].IsStloc()) //uint num = uint_0 >> 30;
-                return false;
-            i++;
-            //TODO: Implement
-            //if (!instr[10].IsLdloca())
-            //    return;
-            if (instr[i++].OpCode != OpCodes.Initobj)
-                return false;
-            if (!instr[i++].IsLdarg())
-                return false;
-            if (!instr[i].IsLdcI4() || instr[i++].GetLdcI4Value() != 0x3FFFFFFF)
-                return false;
-            if (instr[i++].OpCode != OpCodes.And)
-                return false;
-            if (!instr[i++].IsStarg()) //uint_0 &= 1073741823u;
-                return false;
-
-            if (!instr[i++].IsLdarg())
-                return false;
-            if (!instr[i].IsLdcI4() || instr[i++].GetLdcI4Value() != 2)
-                return false;
-            if (instr[i++].OpCode != OpCodes.Shl)
-                return false;
-            if (!instr[i++].IsStarg()) //uint_0 <<= 2;
-                return false;
-
-            foreach (var mtd in _strDecryptCalledMethods)
-                if (!DotNetUtils.CallsMethod(method, mtd))
-                    return false;
-            //TODO: Implement
-            //if (!DotNetUtils.LoadsField(method, decryptedField))
-            //    return;
-            return true;
+			return false;
         }
 
         private bool IsNativeStringDecrypter(MethodDef method, out MethodDef nativeMethod)

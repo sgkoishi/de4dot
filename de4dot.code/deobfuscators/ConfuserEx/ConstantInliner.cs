@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using de4dot.blocks;
 using de4dot.blocks.cflow;
@@ -166,9 +166,9 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 Logger.v("Decrypted uint64: {0}", callResult.returnValue);
             }
         }
-    }
+	}
 
-    public class ArrayValueInliner : ValueInlinerBase<Array>
+	public class ArrayValueInliner : ValueInlinerBase<Array>
     {
         private readonly InitializedDataCreator _initializedDataCreator;
 

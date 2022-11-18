@@ -17,6 +17,7 @@
     along with de4dot.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+using System;
 using System.Collections.Generic;
 using de4dot.blocks;
 using de4dot.blocks.cflow;
@@ -75,13 +76,16 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 {
                     var list = new List<IBlocksDeobfuscator>();
                     list.Add(_controlFlowFixer);
+					list.Add(_mathInliner);
 
-                    if (_deobfuscating && _int32ValueInliner != null)
+					if (_deobfuscating && _int32ValueInliner != null)
                     {
                         var constantInliner = new ConstantsInliner(_sbyteValueInliner, _byteValueInliner,
-                            _int16ValueInliner,
-                            _uint16ValueInliner, _int32ValueInliner, _uint32ValueInliner, _int64ValueInliner,
-                            _uint64ValueInliner, _singleValueInliner, _doubleValueInliner, _arrayValueInliner)
+                            _int16ValueInliner, _uint16ValueInliner,
+							_int32ValueInliner, _uint32ValueInliner,
+							_int64ValueInliner, _uint64ValueInliner,
+							_singleValueInliner, _doubleValueInliner,
+							_arrayValueInliner)
                         {
                             ExecuteIfNotModified = true
                         };
@@ -142,9 +146,13 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 }
             }
 
-            public override void DeobfuscateBegin()
-            {
-                if (_constantDecrypter.Detected)
+            public override void DeobfuscateBegin() {
+				if (_mathInliner == null) {
+					_mathInliner = new MathInliner(module) {
+						ExecuteIfNotModified = true
+					};
+				}
+				if (_constantDecrypter.Detected)
                 {
                     _sbyteValueInliner = new SByteValueInliner();
                     _byteValueInliner = new ByteValueInliner();
@@ -157,34 +165,36 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                     _singleValueInliner = new SingleValueInliner();
                     _doubleValueInliner = new DoubleValueInliner();
                     _arrayValueInliner = new ArrayValueInliner(initializedDataCreator);
-                    foreach (var info in _constantDecrypter.Decrypters)
+
+					foreach (var info in _constantDecrypter.Decrypters)
                     {
+						uint Fix(object o) => o is uint ui ? ui : o is int i ? (uint)i : throw new NotImplementedException();
                         staticStringInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptString(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptString(info, gim, Fix(args[0])));
                         _sbyteValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptSByte(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptSByte(info, gim, Fix(args[0])));
                         _byteValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptByte(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptByte(info, gim, Fix(args[0])));
                         _int16ValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptInt16(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptInt16(info, gim, Fix(args[0])));
                         _uint16ValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptUInt16(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptUInt16(info, gim, Fix(args[0])));
                         _int32ValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptInt32(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptInt32(info, gim, Fix(args[0])));
                         _uint32ValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptUInt32(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptUInt32(info, gim, Fix(args[0])));
                         _int64ValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptInt64(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptInt64(info, gim, Fix(args[0])));
                         _uint64ValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptUInt64(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptUInt64(info, gim, Fix(args[0])));
                         _singleValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptSingle(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptSingle(info, gim, Fix(args[0])));
                         _doubleValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptDouble(info, gim, (uint) args[0]));
+                            (method, gim, args) => _constantDecrypter.DecryptDouble(info, gim, Fix(args[0])));
                         _arrayValueInliner.Add(info.Method,
-                            (method, gim, args) => _constantDecrypter.DecryptArray(info, gim, (uint) args[0]));
-                    }
-                    _deobfuscating = true;
+                            (method, gim, args) => _constantDecrypter.DecryptArray(info, gim, Fix(args[0])));
+					}
+					_deobfuscating = true;
                 }
                 if (_resourceDecrypter.Detected)
                 {
@@ -288,6 +298,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             private SingleValueInliner _singleValueInliner;
             private DoubleValueInliner _doubleValueInliner;
             private ArrayValueInliner _arrayValueInliner;
+			private MathInliner _mathInliner;
 
             #endregion
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using de4dot.blocks;
 using dnlib.DotNet;
@@ -146,15 +147,26 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             return true;
         }
 
-        public static MethodDefUser Clone(MethodDef origin)
+        public static MethodDefUser Clone(MethodDef origin, bool deep = true)
         {
-            var ret = new MethodDefUser(origin.Name, origin.MethodSig, origin.ImplAttributes, origin.Attributes);
+			if (deep) {
+				var ret = new MethodDefUser(origin.Name, origin.MethodSig.Clone(), origin.ImplAttributes, origin.Attributes);
 
-            foreach (GenericParam genericParam in origin.GenericParameters)
-                ret.GenericParameters.Add(new GenericParamUser(genericParam.Number, genericParam.Flags, "-"));
+				foreach (GenericParam genericParam in origin.GenericParameters)
+					ret.GenericParameters.Add(new GenericParamUser(genericParam.Number, genericParam.Flags, "-"));
+				ret.Body = new CilBody(origin.Body.InitLocals, origin.Body.Instructions.ToList(), origin.Body.ExceptionHandlers.ToList(), origin.Body.Variables.ToList());
 
-            ret.Body = origin.Body;
-            return ret;
+				return ret;
+			}
+			else {
+				var ret = new MethodDefUser(origin.Name, origin.MethodSig, origin.ImplAttributes, origin.Attributes);
+
+				foreach (GenericParam genericParam in origin.GenericParameters)
+					ret.GenericParameters.Add(new GenericParamUser(genericParam.Number, genericParam.Flags, "-"));
+
+				ret.Body = origin.Body;
+				return ret;
+			}
         }
 
         public static T[] ConvertArray<T, T1>(T1[] array)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 
 namespace de4dot.code.deobfuscators
@@ -43,9 +43,21 @@ namespace de4dot.code.deobfuscators
                 int v = s.ReadByte();
                 outSize |= ((long)(byte)v) << (8 * i);
             }
+			var headerLength = 13;
+			// A modified version that use i32 instead of i64 as length
+			if (outSize < 0 || outSize > Int32.MaxValue) {
+				headerLength = 9;
+				s.Position = 5;
+				var sizebuffer = new byte[4];
+				s.Read(sizebuffer, 0, 4);
+				if (!BitConverter.IsLittleEndian) {
+					Array.Reverse(sizebuffer, 0, 4);
+				}
+				outSize = BitConverter.ToInt32(sizebuffer);
+			}
             var b = new byte[(int)outSize];
             var z = new MemoryStream(b, true);
-            long compressedSize = s.Length - 13;
+            long compressedSize = s.Length - headerLength;
             decoder.Code(s, z, compressedSize, outSize);
             return b;
         }
