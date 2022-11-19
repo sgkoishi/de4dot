@@ -76,7 +76,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 {
                     var list = new List<IBlocksDeobfuscator>();
                     list.Add(_controlFlowFixer);
-					list.Add(_mathInliner);
+					list.Add(_miscInliner);
 
 					if (_deobfuscating && _int32ValueInliner != null)
                     {
@@ -147,8 +147,8 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             }
 
             public override void DeobfuscateBegin() {
-				if (_mathInliner == null) {
-					_mathInliner = new MathInliner(module) {
+				if (_miscInliner == null) {
+					_miscInliner = new MiscInliner() {
 						ExecuteIfNotModified = true
 					};
 				}
@@ -200,7 +200,6 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 {
                     _resourceDecrypter.Fix();
                 }
-
                 base.DeobfuscateBegin();
             }
 
@@ -263,9 +262,11 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                             && toRemoveFromCctor.Contains((MethodDef) instr.Operand))
                             instr.OpCode = OpCodes.Nop;
 
-                //TODO: Might not always be correct
-                //No more mixed!
-                module.IsILOnly = true;
+				new TypesRestorer(module).Deobfuscate();
+
+				//TODO: Might not always be correct
+				//No more mixed!
+				module.IsILOnly = true;
 
                 base.DeobfuscateEnd();
             }
@@ -298,7 +299,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             private SingleValueInliner _singleValueInliner;
             private DoubleValueInliner _doubleValueInliner;
             private ArrayValueInliner _arrayValueInliner;
-			private MathInliner _mathInliner;
+			private MiscInliner _miscInliner;
 
             #endregion
         }

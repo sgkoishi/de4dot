@@ -154,8 +154,8 @@ namespace de4dot.code.deobfuscators.ConfuserEx
 
 				foreach (GenericParam genericParam in origin.GenericParameters)
 					ret.GenericParameters.Add(new GenericParamUser(genericParam.Number, genericParam.Flags, "-"));
-				ret.Body = new CilBody(origin.Body.InitLocals, origin.Body.Instructions.ToList(), origin.Body.ExceptionHandlers.ToList(), origin.Body.Variables.ToList());
 
+				ret.Body = new CilBody(origin.Body.InitLocals, origin.Body.Instructions.ToList(), origin.Body.ExceptionHandlers.ToList(), origin.Body.Variables.ToList());
 				return ret;
 			}
 			else {

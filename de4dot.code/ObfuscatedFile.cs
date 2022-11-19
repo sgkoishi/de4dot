@@ -551,9 +551,9 @@ namespace de4dot.code {
 
 				int oldIndentLevel = Logger.Instance.IndentLevel;
 				//TODO: Re-enable exception handler
-                //try {
+                try {
 					Deobfuscate(method, cflowDeobfuscator, methodPrinter, isVerbose, isVV);
-				/*}
+				}
 				catch (Exception ex) {
 					if (!CanLoadMethodBody(method)) {
 						if (isVerbose)
@@ -568,7 +568,7 @@ namespace de4dot.code {
 				}
 				finally {
 					Logger.Instance.IndentLevel = oldIndentLevel;
-                }*/
+                }
 
                RemoveNoInliningAttribute(method);
 
