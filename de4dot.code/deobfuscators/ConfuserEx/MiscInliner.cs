@@ -10,7 +10,7 @@ using static de4dot.code.deobfuscators.ConstantsReader;
 namespace de4dot.code.deobfuscators.ConfuserEx {
 	public class MiscInliner : IBlocksDeobfuscator {
 		public bool ExecuteIfNotModified { get; set; }
-		public Dictionary<MethodDef, (OpCode OpCode, IMemberRef Target)> Map = new Dictionary<MethodDef, (OpCode, IMemberRef)> ();
+		public Dictionary<MethodDef, (OpCode OpCode, IMemberRef Target)> Map = new Dictionary<MethodDef, (OpCode, IMemberRef)>();
 
 		public bool ShouldInline(MethodDef method, out OpCode opcode, out IMemberRef target) {
 			void Detect(MethodDef method) {
@@ -41,22 +41,33 @@ namespace de4dot.code.deobfuscators.ConfuserEx {
 						}
 					}
 				}
+				else {
+					if (ins.Count == 1 && ins[0].OpCode == OpCodes.Ret && method.Parameters.Count == 0) {
+						if (method.IsStatic) {
+							Map.Add(method, (OpCodes.Nop, null));
+						}
+						else {
+							// Does `this` count? idk
+							// Map.Add(method, (OpCodes.Pop, null));
+						}
+					}
+				}
 			}
 
 			if (!Map.ContainsKey(method)) {
 				Detect(method);
 			}
 
-			if (Map.TryGetValue(method, out var result) && result is (OpCode o, IMemberRef m)) {
-				opcode = o;
-				target = m;
+			if (Map.TryGetValue(method, out var result)) {
+				opcode = result.OpCode;
+				target = result.Target;
+				return true;
 			}
 			else {
 				opcode = null;
 				target = null;
+				return false;
 			}
-
-			return opcode != null && target != null;
 		}
 
 		public bool Deobfuscate(List<Block> allBlocks) {

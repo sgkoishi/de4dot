@@ -166,7 +166,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
 		}
 
 		public bool Find(MethodDef method) {
-			_deobfuscator.Deobfuscate(method, SimpleDeobfuscatorFlags.Force);
+			//_deobfuscator.Deobfuscate(method, SimpleDeobfuscatorFlags.Force);
 
 			if (!IsStringDecrypterInit(method, out FieldDef aField, out FieldDef dField))
 				return false;
@@ -200,7 +200,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
 					&& DotNetUtils.IsMethod(im, "System.Void", "(System.Array,System.RuntimeFieldHandle)"),
 				// call System.Byte[] Lzma.Decompress(System.Byte[])
 				i => i.Operand is IMethod im
-					&& im.DeclaringType.Name == "<Module>"
+					&& im.DeclaringType == method.Module.GlobalType
 					&& DotNetUtils.IsMethod(im, "System.Byte[]", "(System.Byte[])"),
 				// callvirt instance int64 [mscorlib]System.IO.Stream::get_Length()
 				i => i.Operand is IMethod im
@@ -230,7 +230,7 @@ namespace de4dot.code.deobfuscators.ConfuserEx
 					if (nins.OpCode == OpCodes.Stsfld
 						&& ins.Operand is IMethod im && nins.Operand is FieldDef fd
 						&& DotNetUtils.IsMethod(im, "System.Byte[]", "(System.Byte[])")
-						&& fd.DeclaringType.ToString() == "<Module>") {
+						&& fd.DeclaringType == method.Module.GlobalType) {
 						dField = fd;
 					}
 				}

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using de4dot.blocks;
@@ -34,9 +34,13 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 var nativeMethod = new X86Method(nativeSwitchData.NativeMethodDef, _blocks.Method.Module as ModuleDefMD); //TODO: Possible null
                 return nativeMethod.Execute(num);
             }
-            if (switchData is NormalSwitchData)
-            {
+            if (switchData is NormalSwitchData) {
                 var normalSwitchData = (NormalSwitchData)switchData;
+                return num ^ normalSwitchData.Key.Value;
+            }
+
+            if (switchData is SimpleSwitchData) {
+                var normalSwitchData = (SimpleSwitchData)switchData;
                 return num ^ normalSwitchData.Key.Value;
             }
             return null;
@@ -53,10 +57,13 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 _instructionEmulator.Pop();
                 return ((Int32Value)popValue).Value;
             }
-            if (switchData is NormalSwitchData)
-            {
+            if (switchData is NormalSwitchData) {
                 var normalSwitchData = (NormalSwitchData)switchData;
                 return key % normalSwitchData.DivisionKey;
+            }
+
+            if (switchData is SimpleSwitchData) {
+                return key;
             }
             return null;
         }
@@ -165,22 +172,70 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             List<Block> switchBlocks = GetSwitchBlocks(methodBlocks); // blocks that contain a switch
             int modifications = 0;
 
-            foreach (Block switchBlock in switchBlocks)
-            {
-                if (switchBlock.SwitchData.IsKeyHardCoded)
-                {
+            foreach (Block switchBlock in switchBlocks) {
+                if (switchBlock.SwitchData is NativeSwitchData) {
                     ProcessHardcodedSwitch(switchBlock);
                     modifications++;
                     continue;
                 }
 
-                _switchKey = Instr.GetLocalVar(_blocks.Locals,
-                    switchBlock.Instructions[switchBlock.Instructions.Count - 4]);
+                if (switchBlock.SwitchData is SimpleSwitchData) {
+                    if (DeobfuscateSimpleSwitchBlock(methodBlocks, switchBlock))
+                        modifications++;
+                    continue;
+                }
 
-                if (DeobfuscateSwitchBlock(methodBlocks, switchBlock))
-                    modifications++;
+                if (switchBlock.SwitchData is NormalSwitchData) {
+                    _switchKey = Instr.GetLocalVar(_blocks.Locals,
+                        switchBlock.Instructions[switchBlock.Instructions.Count - 4]);
+
+                    if (DeobfuscateSwitchBlock(methodBlocks, switchBlock))
+                        modifications++;
+                }
             }
+
             return modifications > 0;
+        }
+
+        private bool DeobfuscateSimpleSwitchBlock(List<Block> methodBlocks, Block switchBlock) {
+            var switchFallThroughs = methodBlocks.FindAll(b => b.FallThrough == switchBlock);
+            var modded = false;
+            if (modded) {
+                return false;
+            }
+            foreach (var block in switchFallThroughs) {
+                if (!block.Processed) {
+                    try {
+                        block.Processed = true;
+                        _instructionEmulator.Emulate(block.Instructions);
+                        var s = _instructionEmulator.StackSize();
+                        _instructionEmulator.Emulate(switchBlock.Instructions, 0, switchBlock.Instructions.Count - 1);
+                        if (_instructionEmulator.Peek() is Int32Value i) {
+                            for (var j = 0; j < s - _instructionEmulator.StackSize() + 1; j++) {
+                                block.Add(new Instr(OpCodes.Pop.ToInstruction()));
+                            }
+                            block.SetNewFallThrough(switchBlock.Targets[i.Value]);
+                            modded = true;
+                        }
+                        _instructionEmulator.ClearStack();
+                    }
+                    catch {
+                    }
+                }
+            }
+            if (!modded) {
+                foreach (var block in switchFallThroughs) {
+                    if (block.Instructions.Count < 3) {
+                        foreach (var source in block.Sources.ToList()) {
+                            if (source.CanAppend(block)) {
+                                source.Append(block);
+                                modded = true;
+                            }
+                        }
+                    }
+                }
+            }
+            return modded;
         }
 
         private bool DeobfuscateSwitchBlock(List<Block> methodBlocks, Block switchBlock)
@@ -248,14 +303,22 @@ namespace de4dot.code.deobfuscators.ConfuserEx
             var instructions = block.Instructions;
             var lastIndex = instructions.Count - 1;
 
-            if (instructions.Count < 4)
+            var flag = false;
+            if (instructions.Count >= 4
+                && instructions[lastIndex - 3].IsStloc()
+                && instructions[lastIndex - 2].IsLdcI4()
+                && instructions[lastIndex - 1].OpCode != OpCodes.Rem_Un) {
+                flag = true;
+            }
+            else if (instructions.Count >= 3
+                && instructions[lastIndex - 2].IsLdcI4()
+                && instructions[lastIndex - 1].OpCode != OpCodes.Rem_Un) {
+                flag = true;
+            }
+
+            if (!flag) {
                 return false;
-            if (!instructions[lastIndex - 3].IsStloc())
-                return false;
-            if (!instructions[lastIndex - 2].IsLdcI4())
-                return false;
-            if (instructions[lastIndex - 1].OpCode != OpCodes.Rem_Un)
-                return false;
+            }
 
             var nativeSwitchData = new NativeSwitchData(block);
             if (nativeSwitchData.Initialize())
@@ -263,6 +326,12 @@ namespace de4dot.code.deobfuscators.ConfuserEx
                 block.SwitchData = nativeSwitchData;
                 if (!NativeMethods.Contains(nativeSwitchData.NativeMethodDef)) // add for remove
                     NativeMethods.Add(nativeSwitchData.NativeMethodDef);
+                return true;
+            }
+
+            var simpleSwitchData = new SimpleSwitchData(block);
+            if (simpleSwitchData.Initialize()) {
+                block.SwitchData = simpleSwitchData;
                 return true;
             }
 

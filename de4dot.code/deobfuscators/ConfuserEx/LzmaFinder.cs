@@ -66,14 +66,22 @@ namespace de4dot.code.deobfuscators.ConfuserEx
 				i => i.Operand is IMethod im
 					&& DotNetUtils.IsMethod(im, "System.Int32", "(System.Byte[],System.Int32,System.Int32)"),
 				// call void [mscorlib]System.Array::Reverse(class [mscorlib]System.Array, int32, int32)
-				i => i.Operand is IMethod im
-					&& DotNetUtils.IsMethod(im, "System.Void", "(System.Array,System.Int32,System.Int32)"),
+				// i => i.Operand is IMethod im
+				// 	&& DotNetUtils.IsMethod(im, "System.Void", "(System.Array,System.Int32,System.Int32)"),
 				// decoder.Code(s, z, compressedSize, outSize);
 				i => i.Operand is IMethod im
 					&& DotNetUtils.IsMethod(im, "System.Void", "(System.IO.Stream,System.IO.Stream,System.Int64,System.Int64)"),
 			};
 
-			return calledMethods.All(m => instructions.Any(i => m(i)));
+			foreach (var cm in calledMethods) {
+				var flag = false;
+				foreach (var i in instructions) {
+					if (cm(i)) { flag = true; break; }
+				}
+				if (!flag)
+					return false;
+			}
+			return true;
         }
 
         private void ExtractNestedTypes(TypeDef type)
